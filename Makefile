@@ -1,11 +1,11 @@
-CC := clang
+CC := gcc
 CFLAGS := -g -Wall -Wextra -pedantic -Werror
 SOURCES := main.c common.c
-LIBS := -lraylib
+LIBS := -I./raylib/src -Lraylib/src -lraylib -lm
 OBJS :=$(SOURCES:.c=.o)
 
 main: $(OBJS)
-	$(CC) $(CFLAGS) $(LIBS) $^ -o $@
+	$(CC) $(CFLAGS) $^ -o $@ $(LIBS) 
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
