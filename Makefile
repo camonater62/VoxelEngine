@@ -1,7 +1,7 @@
-CC := gcc
-CFLAGS := -g -Wall -Wextra -pedantic -Werror
-SOURCES := main.c common.c
-LIBS := -I./raylib/src -Lraylib/src -lraylib -lm
+CC := clang
+CFLAGS := -g -Wall -Wextra -Wpedantic -Werror -Iraylib/src 
+SOURCES := main.c common.c chunk.c
+LIBS := -Lraylib/src -lraylib -lm
 OBJS :=$(SOURCES:.c=.o)
 
 main: $(OBJS)

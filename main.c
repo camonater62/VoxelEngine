@@ -1,70 +1,74 @@
 #include <stdio.h>
+#include <string.h>
+#include <assert.h>
+#include <stdlib.h>
 
 #include "common.h"
+#include "chunk.h"
+#include "rcamera.h"
 
 int main(void)
 {
-    SetTargetFPS(60);
-    SetConfigFlags(FLAG_VSYNC_HINT | FLAG_WINDOW_HIGHDPI);
+    SetTargetFPS(120);
+    SetConfigFlags(FLAG_VSYNC_HINT);
     InitWindow(WIN_RES.x, WIN_RES.y, "Voxel Engine");
     DisableCursor();
     SetMousePosition(WIN_RES.x / 2, WIN_RES.y / 2);
 
-    Shader quadShader = LoadShader("quad.vert", "quad.frag");
-    Material quadMaterial = LoadMaterialDefault();
-
-    Mesh quadMesh = {0};
-    float quadVertices[6 * 3] = {
-        // Triangle 1
-        0.5f, 0.5f, 0.0f,
-        -0.5f, 0.5f, 0.0f,
-        -0.5f, -0.5f, 0.0f,
-        // Triangle 2
-        0.5f, 0.5f, 0.0f,
-        -0.5f, -0.5f, 0.0f,
-        0.5f, -0.5f, 0.0f,
+    Vector3 playerPosition = {
+        .x = H_CHUNK_SIZE,
+        .y = CHUNK_SIZE,
+        .z = 2.f * CHUNK_SIZE,
     };
-    uint8_t quadColors[6 * 4] = {
-        // Triangle 1
-        0, 255, 0, 255,
-        255, 0, 0, 255,
-        255, 255, 0, 255,
-        // Triangle 2
-        0, 255, 0, 255,
-        255, 255, 0, 255,
-        0, 0, 255, 255,
-    }; 
-
-    quadMesh.triangleCount = 2;
-    quadMesh.vertexCount = 6;
-    quadMesh.vertices = quadVertices;
-    quadMesh.colors = quadColors;
-    UploadMesh(&quadMesh, false);
-
-    Model quadModel = LoadModelFromMesh(quadMesh);
 
     Camera camera = {
         .fovy = 60.0f,
-        .position = (Vector3){ 0, 0, 1 },
+        .position = playerPosition,
         .projection = CAMERA_PERSPECTIVE,
-        .target = (Vector3){ 0, 0, 0},
+        .target = Vector3Subtract(playerPosition, (Vector3){0,0,1}),
         .up = (Vector3){ 0, 1, 0 },
     };
 
+    char* vShaderStr = LoadFileText("chunk.vert");
+    char* fShaderStr = LoadFileText("chunk.frag");
+    int chunkShaderId = rlLoadShaderCode(vShaderStr, fShaderStr);
+    assert(chunkShaderId > 0);
+
+    Chunk* chunk = CreateChunk();
+    int chunkvao = rlLoadVertexArray();
+    assert(chunkvao > 0);
+    int chunkvbo = rlLoadVertexBuffer(chunk->vertices, chunk->vertexCount * chunk->vertexSize, false);
+    assert(chunkvbo > 0);
+
+
+    rlEnableVertexArray(chunkvao);
+    rlEnableVertexAttribute(0);
+    rlSetVertexAttribute(0, 1, RL_UNSIGNED_BYTE, false, 5, 0);
+    rlEnableVertexAttribute(1);
+    rlSetVertexAttribute(1, 1, RL_UNSIGNED_BYTE, false, 5, 1);
+    rlEnableVertexAttribute(2);
+    rlSetVertexAttribute(2, 1, RL_UNSIGNED_BYTE, false, 5, 2);
+    rlEnableVertexAttribute(3);
+    rlSetVertexAttribute(3, 1, RL_UNSIGNED_BYTE, false, 5, 3);
+    rlEnableVertexAttribute(4);
+    rlSetVertexAttribute(4, 1, RL_UNSIGNED_BYTE, false, 5, 4);
+
+    int mvpUniformLoc = rlGetLocationUniform(chunkShaderId, "mvp");
+    assert(mvpUniformLoc >= 0);
 
     while (!WindowShouldClose())
     {
         UpdateCameraPro(&camera,
             (Vector3){
                 // Move forward-backward
-                (IsKeyDown(KEY_W) || IsKeyDown(KEY_UP)) * 5.0f * GetFrameTime() -      
-                (IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN)) * 5.0f * GetFrameTime(),    
+                (IsKeyDown(KEY_W) || IsKeyDown(KEY_UP)) * 50.0f * GetFrameTime() -      
+                (IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN)) * 50.0f * GetFrameTime(),    
                 // Move right-left
-                (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)) * 5.0f * GetFrameTime() -   
-                (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT)) * 5.0f * GetFrameTime(),
+                (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)) * 50.0f * GetFrameTime() -   
+                (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT)) * 50.0f * GetFrameTime(),
                 // Move up-down
-                (IsKeyDown(KEY_SPACE)) * 5.0f * GetFrameTime() -      
-                (IsKeyDown(KEY_LEFT_SHIFT)) * 5.0f * GetFrameTime(),                                                 
+                (IsKeyDown(KEY_SPACE)) * 50.0f * GetFrameTime() -      
+                (IsKeyDown(KEY_LEFT_SHIFT)) * 50.0f * GetFrameTime(),                                                 
             },
             (Vector3){
                 // Rotation: yaw
@@ -77,13 +81,27 @@ int main(void)
             // Move to target (zoom)
             GetMouseWheelMove()*2.0f);                              
 
-        ClearBackground(BACKGROUND_COLOR);
+        ClearBackground(BG_COLOR);
 
         BeginDrawing();
         {
             BeginMode3D(camera);
             {
-                DrawModel(quadModel, (Vector3){0, 0, 0}, 1.0f, WHITE);
+                rlDisableBackfaceCulling();
+                rlEnableShader(chunkShaderId);
+                // Matrix matView = rlGetMatrixModelview();
+                // Matrix matProjection = MatrixPerspective(camera.fovy * DEG2RAD, 16.0/9, 0.01, 1000); // rlGetMatrixProjection();
+                // Matrix matModelViewProjection = MatrixMultiply(matModelView, matProjection);
+                Matrix matModel = MatrixIdentity();
+                Matrix matView = GetCameraViewMatrix(&camera);
+                Matrix matModelView = MatrixMultiply(matModel, matView);
+                Matrix matProjection = GetCameraProjectionMatrix(&camera, WIN_RES.x / WIN_RES.y);
+                Matrix matModelViewProjection = MatrixMultiply(matModelView, matProjection);
+                
+                rlSetUniformMatrix(mvpUniformLoc, matModelViewProjection);
+                // rlSetUniformMatrix(mvpUniformLoc, matModelView);
+                assert(rlEnableVertexArray(chunkvao));
+                rlDrawVertexArray(0, chunk->vertexCount);
             }
             EndMode3D();
         }
@@ -94,11 +112,10 @@ int main(void)
         SetWindowTitle(titlebuf);
     }
 
-    // UnloadModel(quadModel);
-    // UnloadMesh(quadMesh);
-    UnloadMaterial(quadMaterial);
-    UnloadShader(quadShader);
+    rlUnloadVertexArray(chunkvao);
+    rlUnloadVertexBuffer(chunkvbo);
 
+    DestroyChunk(chunk);
     CloseWindow();
 
     return 0;
