@@ -36,6 +36,9 @@ int main(void)
     int chunkShaderId = rlLoadShaderCode(vShaderStr, fShaderStr);
     assert(chunkShaderId > 0);
 
+    UnloadFileText(vShaderStr);
+    UnloadFileText(fShaderStr);
+
     Chunk* chunk = CreateChunk();
     int chunkvao = rlLoadVertexArray();
     assert(chunkvao > 0);
@@ -52,6 +55,18 @@ int main(void)
 
     int mvpUniformLoc = rlGetLocationUniform(chunkShaderId, "mvp");
     assert(mvpUniformLoc >= 0);
+    int texture0Loc = rlGetLocationUniform(chunkShaderId, "u_texture_0");
+    assert(texture0Loc >= 0);
+    
+    rlDisableVertexArray();
+    rlDisableVertexBuffer();
+    rlDisableShader();
+
+    Image testImage = LoadImage("frame.png");
+    ImageFlipHorizontal(&testImage);
+    Texture testTexture = LoadTextureFromImage(testImage);
+    rlTextureParameters(testTexture.id, RL_TEXTURE_FILTER_ANISOTROPIC, 16);
+    assert(IsTextureReady(testTexture));
 
     while (!WindowShouldClose())
     {
@@ -76,7 +91,7 @@ int main(void)
                 0.0f                                                
             },
             // Move to target (zoom)
-            GetMouseWheelMove()*2.0f);                              
+            0.0f);                              
 
         ClearBackground(BG_COLOR);
 
@@ -90,21 +105,25 @@ int main(void)
                 Matrix matProjection = GetCameraProjectionMatrix(&camera, WIN_RES.x / WIN_RES.y);
                 Matrix matModelViewProjection = MatrixMultiply(matModelView, matProjection);
                 
+                rlEnableTexture(testTexture.id);
                 rlSetUniformMatrix(mvpUniformLoc, matModelViewProjection);
+                rlSetUniform(texture0Loc, &testTexture.id, RL_SHADER_UNIFORM_UINT, 1);
                 assert(rlEnableVertexArray(chunkvao));
                 rlDrawVertexArray(0, chunk->vertexCount);
             }
             EndMode3D();
+
+            DrawFPS(10, 10);
         }
         EndDrawing();
-
-        char titlebuf[50] = {0};
-        snprintf(titlebuf, 50, "%0.0f FPS", 1.0f / GetFrameTime());
-        SetWindowTitle(titlebuf);
     }
+
+    UnloadImage(testImage);
+    UnloadTexture(testTexture);
 
     rlUnloadVertexArray(chunkvao);
     rlUnloadVertexBuffer(chunkvbo);
+    rlUnloadShaderProgram(chunkShaderId);
 
     DestroyChunk(chunk);
     CloseWindow();
