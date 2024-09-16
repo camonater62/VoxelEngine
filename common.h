@@ -5,6 +5,7 @@
 #include <raylib.h>
 #include <raymath.h>
 #include <rlgl.h>
+#include <assert.h>
 
 extern const Vector2 WIN_RES;
 extern const Color BG_COLOR;

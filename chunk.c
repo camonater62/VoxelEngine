@@ -5,7 +5,16 @@
 #include <stddef.h>
 #include <stdio.h>
 
+#include "rcamera.h"
+
+#include "glad.h"
 #include <stb_perlin.h>
+
+static int chunkShaderId = -1;
+static int chunkMvpLoc = -1;
+static int chunkTextureLoc = -1;
+
+static Texture chunkTexture;
 
 Chunk* CreateChunk(void) {
     Chunk* c = malloc(sizeof(Chunk));
@@ -28,7 +37,68 @@ Chunk* CreateChunk(void) {
 
     GenChunkMesh(c);
 
+    c->vao = rlLoadVertexArray();
+    assert(c->vao > 0);
+    c->vbo = rlLoadVertexBuffer(c->vertices, c->vertexCount * c->vertexSize, false);
+    assert(c->vbo > 0);
+
+    rlEnableVertexArray(c->vao);
+    glVertexAttribIPointer(0, 3, GL_UNSIGNED_BYTE, 5, (void *) 0);
+    rlEnableVertexAttribute(0);
+    glVertexAttribIPointer(1, 1, GL_UNSIGNED_BYTE, 5, (void *) 3);
+    rlEnableVertexAttribute(1);
+    glVertexAttribIPointer(2, 1, GL_UNSIGNED_BYTE, 5, (void *) 4);
+    rlEnableVertexAttribute(2);
+
+    rlDisableVertexArray();
+    rlDisableVertexBuffer();
+
     return c;
+}
+
+void InitChunkGL(void) {
+    char* vShaderStr = LoadFileText("chunk.vert");
+    char* fShaderStr = LoadFileText("chunk.frag");
+    chunkShaderId = rlLoadShaderCode(vShaderStr, fShaderStr);
+    assert(chunkShaderId > 0);
+
+    UnloadFileText(vShaderStr);
+    UnloadFileText(fShaderStr);
+
+    chunkMvpLoc = rlGetLocationUniform(chunkShaderId, "mvp");
+    assert(chunkMvpLoc >= 0);
+    chunkTextureLoc = rlGetLocationUniform(chunkShaderId, "u_texture_0");
+    assert(chunkTextureLoc >= 0);
+    
+    rlDisableShader();
+
+    Image image = LoadImage("frame.png");
+    ImageFlipHorizontal(&image);
+    chunkTexture = LoadTextureFromImage(image);
+    UnloadImage(image);
+    rlTextureParameters(chunkTexture.id, RL_TEXTURE_FILTER_ANISOTROPIC, 16);
+    assert(IsTextureReady(chunkTexture));
+}
+
+void CloseChunkGL(void) {
+    UnloadTexture(chunkTexture);
+    rlUnloadShaderProgram(chunkShaderId);
+}
+
+void DrawChunk(Chunk *c, Camera* camera, Vector3 position) {
+    rlEnableShader(chunkShaderId);
+
+    Matrix matModel = MatrixTranslate(position.x, position.y, position.z);
+    Matrix matView = GetCameraViewMatrix(camera);
+    Matrix matModelView = MatrixMultiply(matModel, matView);
+    Matrix matProjection = GetCameraProjectionMatrix(camera, WIN_RES.x / WIN_RES.y);
+    Matrix matModelViewProjection = MatrixMultiply(matModelView, matProjection);
+    
+    rlEnableTexture(chunkTexture.id);
+    rlSetUniformMatrix(chunkMvpLoc, matModelViewProjection);
+    rlSetUniform(chunkTextureLoc, &chunkTexture.id, RL_SHADER_UNIFORM_UINT, 1);
+    assert(rlEnableVertexArray(c->vao));
+    rlDrawVertexArray(0, c->vertexCount);
 }
 
 void DestroyChunk(Chunk* c) {
@@ -39,6 +109,10 @@ void DestroyChunk(Chunk* c) {
         if (c->vertices) {
             free(c->vertices);
         }
+
+        rlUnloadVertexArray(c->vao);
+        rlUnloadVertexBuffer(c->vbo);
+
         free(c);
     }
 }
@@ -55,12 +129,10 @@ bool isVoid(Chunk *c, int x, int y, int z) {
 
 void GenChunkMesh(Chunk *chunk)
 {
-    // 5 vertex attributes:
-    // 1) x
-    // 2) y
-    // 3) z
-    // 4) voxel_id
-    // 5) face_id
+    // vertex attributes:
+    // 0-2 x,y,z
+    // 3   voxel_id
+    // 4   face_id
     chunk->vertexSize = 5;
     uint8_t* vertex_data = (uint8_t*) calloc(CHUNK_VOLUME * 18 * chunk->vertexSize, sizeof(uint8_t));
     int index = 0;
@@ -68,7 +140,6 @@ void GenChunkMesh(Chunk *chunk)
     #define PUSH_VERTEX(vertex) \
         memcpy(vertex_data + index, vertex, sizeof(vertex)); \
         index += sizeof(vertex); 
-    
 
     #define PUSH_FACE(a, b, c, d, e, f) \
         PUSH_VERTEX(a); \
@@ -77,7 +148,6 @@ void GenChunkMesh(Chunk *chunk)
         PUSH_VERTEX(d); \
         PUSH_VERTEX(e); \
         PUSH_VERTEX(f); 
-    
 
     for (uint8_t x = 0; x < CHUNK_SIZE; x++) {
         for (uint8_t y = 0; y < CHUNK_SIZE; y++) {
@@ -154,9 +224,6 @@ void GenChunkMesh(Chunk *chunk)
         free(chunk->vertices);
     }
 
-
     chunk->vertices = vertex_data;
     chunk->vertexCount = index / chunk->vertexSize;
-
-    printf("Used %i / %i\n", index, CHUNK_VOLUME * 18 * 5);
 }
