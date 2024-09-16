@@ -1,11 +1,14 @@
 #include "chunk.h"
 
+#include "world.h"
+
 #include <stdlib.h>
 #include <string.h>
 #include <stddef.h>
 #include <stdio.h>
 
 #include "rcamera.h"
+#include "math.h"
 
 #include "glad.h"
 #include <stb_perlin.h>
@@ -16,42 +19,31 @@ static int chunkTextureLoc = -1;
 
 static Texture chunkTexture;
 
-Chunk* CreateChunk(void) {
+Chunk* CreateChunk(World *w, Vector3 position, int chunk_index) {
     Chunk* c = malloc(sizeof(Chunk));
     c->voxels = calloc(CHUNK_VOLUME, sizeof(uint8_t));
+    w->voxels[chunk_index] = c->voxels;
     c->vertices = NULL;
     c->vertexCount = 0;
     c->vertexSize = 0;
+    c->chunk_index = chunk_index;
+    c->position = position;
+    c->world = w;
 
     for (int x = 0; x < CHUNK_SIZE; x++) {
         for (int z = 0; z < CHUNK_SIZE; z++) {
-            for (int y = 0; y < CHUNK_SIZE; y++) {
-                if (stb_perlin_noise3(0.1f * x, 0.1f * y, 0.1f * z, 0, 0, 0) > 0) {
-                    c->voxels[x + CHUNK_SIZE * z + CHUNK_AREA * y] = x + y + z;
-                } else {
-                    c->voxels[x + CHUNK_SIZE * z + CHUNK_AREA * y] = 0;
-                }
+            float wx = 0.01f * (x + position.x);
+            float wz = 0.01f * (z + position.z);
+            int world_height = (int)(64 * stb_perlin_noise3(wx, 0, wz, 0, 0, 0) + 64);
+            int local_height = world_height - position.y;
+            if (local_height > CHUNK_SIZE) {
+                local_height = CHUNK_SIZE;
+            }
+            for (int y = 0; y < local_height; y++) {
+                c->voxels[x + CHUNK_SIZE * z + CHUNK_AREA * y] = y + position.y + 1;
             }
         }
     }
-
-    GenChunkMesh(c);
-
-    c->vao = rlLoadVertexArray();
-    assert(c->vao > 0);
-    c->vbo = rlLoadVertexBuffer(c->vertices, c->vertexCount * c->vertexSize, false);
-    assert(c->vbo > 0);
-
-    rlEnableVertexArray(c->vao);
-    glVertexAttribIPointer(0, 3, GL_UNSIGNED_BYTE, 5, (void *) 0);
-    rlEnableVertexAttribute(0);
-    glVertexAttribIPointer(1, 1, GL_UNSIGNED_BYTE, 5, (void *) 3);
-    rlEnableVertexAttribute(1);
-    glVertexAttribIPointer(2, 1, GL_UNSIGNED_BYTE, 5, (void *) 4);
-    rlEnableVertexAttribute(2);
-
-    rlDisableVertexArray();
-    rlDisableVertexBuffer();
 
     return c;
 }
@@ -85,10 +77,14 @@ void CloseChunkGL(void) {
     rlUnloadShaderProgram(chunkShaderId);
 }
 
-void DrawChunk(Chunk *c, Camera* camera, Vector3 position) {
+void DrawChunk(Chunk *c, Camera* camera) {
+    if (c->vertexCount == 0) {
+        return;
+    }
+
     rlEnableShader(chunkShaderId);
 
-    Matrix matModel = MatrixTranslate(position.x, position.y, position.z);
+    Matrix matModel = MatrixTranslate(c->position.x, c->position.y, c->position.z);
     Matrix matView = GetCameraViewMatrix(camera);
     Matrix matModelView = MatrixMultiply(matModel, matView);
     Matrix matProjection = GetCameraProjectionMatrix(camera, WIN_RES.x / WIN_RES.y);
@@ -103,9 +99,6 @@ void DrawChunk(Chunk *c, Camera* camera, Vector3 position) {
 
 void DestroyChunk(Chunk* c) {
     if (c) {
-        if (c->voxels) {
-            free(c->voxels);
-        }
         if (c->vertices) {
             free(c->vertices);
         }
@@ -118,13 +111,30 @@ void DestroyChunk(Chunk* c) {
 }
 
 bool isVoid(Chunk *c, int x, int y, int z) {
-    if (x < 0 || x >= CHUNK_SIZE 
-     || y < 0 || y >= CHUNK_SIZE 
-     || z < 0 || z >= CHUNK_SIZE) {
+    int wx = x + c->position.x;
+    int wy = y + c->position.y;
+    int wz = z + c->position.z;
+
+    if (wx < 0 || wx >= WORLD_W * CHUNK_SIZE 
+     || wy < 0 || wy >= WORLD_H * CHUNK_SIZE
+     || wz < 0 || wz >= WORLD_D * CHUNK_SIZE) {
         return true;
     }
 
-    return (c->voxels[x + CHUNK_SIZE * z + CHUNK_AREA * y] == 0);
+    int cx = (x + c->position.x) / CHUNK_SIZE;
+    int cy = (y + c->position.y) / CHUNK_SIZE;
+    int cz = (z + c->position.z) / CHUNK_SIZE;
+
+    int chunk_index = cx + WORLD_W * cz + WORLD_AREA * cy;
+    uint8_t *chunk_voxels = c->world->voxels[chunk_index];
+
+    x = (x + CHUNK_SIZE) % CHUNK_SIZE;
+    y = (y + CHUNK_SIZE) % CHUNK_SIZE;
+    z = (z + CHUNK_SIZE) % CHUNK_SIZE;
+    
+    int voxel_index = x + z * CHUNK_SIZE + y * CHUNK_AREA;
+
+    return (chunk_voxels[voxel_index] == 0);
 }
 
 void GenChunkMesh(Chunk *chunk)
@@ -134,7 +144,7 @@ void GenChunkMesh(Chunk *chunk)
     // 3   voxel_id
     // 4   face_id
     chunk->vertexSize = 5;
-    uint8_t* vertex_data = (uint8_t*) calloc(CHUNK_VOLUME * 18 * chunk->vertexSize, sizeof(uint8_t));
+    uint8_t* vertex_data = (uint8_t*) calloc(CHUNK_VOLUME * 36 * chunk->vertexSize, sizeof(uint8_t));
     int index = 0;
 
     #define PUSH_VERTEX(vertex) \
@@ -149,9 +159,9 @@ void GenChunkMesh(Chunk *chunk)
         PUSH_VERTEX(e); \
         PUSH_VERTEX(f); 
 
-    for (uint8_t x = 0; x < CHUNK_SIZE; x++) {
-        for (uint8_t y = 0; y < CHUNK_SIZE; y++) {
-            for (uint8_t z = 0; z < CHUNK_SIZE; z++) {
+    for (uint8_t y = 0; y < CHUNK_SIZE; y++) {
+        for (uint8_t z = 0; z < CHUNK_SIZE; z++) {
+            for (uint8_t x = 0; x < CHUNK_SIZE; x++) {
                 uint8_t voxel_id = chunk->voxels[x + CHUNK_SIZE * z + CHUNK_AREA * y];
                 if (voxel_id == 0) {
                     continue;
@@ -226,4 +236,20 @@ void GenChunkMesh(Chunk *chunk)
 
     chunk->vertices = vertex_data;
     chunk->vertexCount = index / chunk->vertexSize;
+
+    chunk->vao = rlLoadVertexArray();
+    assert(chunk->vao > 0);
+    chunk->vbo = rlLoadVertexBuffer(chunk->vertices, chunk->vertexCount * chunk->vertexSize, false);
+    assert(chunk->vbo > 0);
+
+    rlEnableVertexArray(chunk->vao);
+    glVertexAttribIPointer(0, 3, GL_UNSIGNED_BYTE, 5, (void *) 0);
+    rlEnableVertexAttribute(0);
+    glVertexAttribIPointer(1, 1, GL_UNSIGNED_BYTE, 5, (void *) 3);
+    rlEnableVertexAttribute(1);
+    glVertexAttribIPointer(2, 1, GL_UNSIGNED_BYTE, 5, (void *) 4);
+    rlEnableVertexAttribute(2);
+
+    rlDisableVertexArray();
+    rlDisableVertexBuffer();
 }

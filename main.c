@@ -4,11 +4,11 @@
 
 #include "common.h"
 #include "chunk.h"
+#include "world.h"
 
 
-int main(void)
-{
-    SetTargetFPS(120);
+int main(void) {
+    SetTargetFPS(0);
     SetConfigFlags(FLAG_VSYNC_HINT);
     InitWindow(WIN_RES.x, WIN_RES.y, "Voxel Engine");
     DisableCursor();
@@ -16,9 +16,9 @@ int main(void)
     InitChunkGL();
 
     Vector3 playerPosition = {
-        .x = H_CHUNK_SIZE,
-        .y = CHUNK_SIZE,
-        .z = 2.f * CHUNK_SIZE,
+        .x = CENTER_XZ,
+        .y = WORLD_H * CHUNK_SIZE,
+        .z = CENTER_XZ,
     };
 
     Camera camera = {
@@ -29,8 +29,7 @@ int main(void)
         .up = (Vector3){ 0, 1, 0 },
     };
 
-    Chunk* chunk = CreateChunk();
-    Chunk* chunk2 = CreateChunk();
+    World* world = CreateWorld();
 
     while (!WindowShouldClose())
     {
@@ -63,17 +62,23 @@ int main(void)
         {
             BeginMode3D(camera);
             {
-                DrawChunk(chunk, &camera, Vector3Zero());
-                DrawChunk(chunk2, &camera, (Vector3){50, 0, 0});
+                DrawWorld(world, &camera);
             }
             EndMode3D();
 
             DrawFPS(10, 10);
+            char buf[50] = {0};
+            snprintf(buf, sizeof(buf), 
+                     "X %.2f  Y %.2f  Z %.2f", 
+                     camera.position.x, 
+                     camera.position.y, 
+                     camera.position.z);
+            DrawText(buf, 10, 50, 20, RAYWHITE);
         }
         EndDrawing();
     }
 
-    DestroyChunk(chunk);
+    DestroyWorld(world);
     CloseChunkGL();
     CloseWindow();
 

@@ -1,6 +1,6 @@
 CC := clang
-CFLAGS := -g -Wall -Wextra -Wpedantic -Werror -Iraylib/src -Iraylib/src/external
-SOURCES := main.c common.c chunk.c
+CFLAGS := -g -O0 -Wall -Wextra -Wpedantic -Werror -Iraylib/src -Iraylib/src/external
+SOURCES := main.c common.c chunk.c world.c
 LIBS := -Lraylib/src -lraylib -lm
 OBJS :=$(SOURCES:.c=.o)
 
