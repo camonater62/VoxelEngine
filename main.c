@@ -7,6 +7,8 @@
 #include "chunk.h"
 #include "rcamera.h"
 
+#include "glad.h"
+
 int main(void)
 {
     SetTargetFPS(120);
@@ -40,18 +42,13 @@ int main(void)
     int chunkvbo = rlLoadVertexBuffer(chunk->vertices, chunk->vertexCount * chunk->vertexSize, false);
     assert(chunkvbo > 0);
 
-
     rlEnableVertexArray(chunkvao);
+    glVertexAttribIPointer(0, 3, GL_UNSIGNED_BYTE, 5, (void *) 0);
     rlEnableVertexAttribute(0);
-    rlSetVertexAttribute(0, 1, RL_UNSIGNED_BYTE, false, 5, 0);
+    glVertexAttribIPointer(1, 1, GL_UNSIGNED_BYTE, 5, (void *) 3);
     rlEnableVertexAttribute(1);
-    rlSetVertexAttribute(1, 1, RL_UNSIGNED_BYTE, false, 5, 1);
+    glVertexAttribIPointer(2, 1, GL_UNSIGNED_BYTE, 5, (void *) 4);
     rlEnableVertexAttribute(2);
-    rlSetVertexAttribute(2, 1, RL_UNSIGNED_BYTE, false, 5, 2);
-    rlEnableVertexAttribute(3);
-    rlSetVertexAttribute(3, 1, RL_UNSIGNED_BYTE, false, 5, 3);
-    rlEnableVertexAttribute(4);
-    rlSetVertexAttribute(4, 1, RL_UNSIGNED_BYTE, false, 5, 4);
 
     int mvpUniformLoc = rlGetLocationUniform(chunkShaderId, "mvp");
     assert(mvpUniformLoc >= 0);
@@ -87,19 +84,13 @@ int main(void)
         {
             BeginMode3D(camera);
             {
-                rlDisableBackfaceCulling();
                 rlEnableShader(chunkShaderId);
-                // Matrix matView = rlGetMatrixModelview();
-                // Matrix matProjection = MatrixPerspective(camera.fovy * DEG2RAD, 16.0/9, 0.01, 1000); // rlGetMatrixProjection();
-                // Matrix matModelViewProjection = MatrixMultiply(matModelView, matProjection);
-                Matrix matModel = MatrixIdentity();
-                Matrix matView = GetCameraViewMatrix(&camera);
-                Matrix matModelView = MatrixMultiply(matModel, matView);
+
+                Matrix matModelView = GetCameraViewMatrix(&camera);
                 Matrix matProjection = GetCameraProjectionMatrix(&camera, WIN_RES.x / WIN_RES.y);
                 Matrix matModelViewProjection = MatrixMultiply(matModelView, matProjection);
                 
                 rlSetUniformMatrix(mvpUniformLoc, matModelViewProjection);
-                // rlSetUniformMatrix(mvpUniformLoc, matModelView);
                 assert(rlEnableVertexArray(chunkvao));
                 rlDrawVertexArray(0, chunk->vertexCount);
             }
