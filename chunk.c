@@ -110,6 +110,54 @@ void DestroyChunk(Chunk* c) {
     }
 }
 
+Vector4 getAO(Chunk *chunk, FacePlane plane, int x, int y, int z) {
+    int a,b,c,d,e,f,g,h;
+
+    switch (plane)
+    {
+    case PLANE_X:
+        a = (int) isVoid(chunk, x, y    , z - 1);
+        b = (int) isVoid(chunk, x, y - 1, z - 1);
+        c = (int) isVoid(chunk, x, y - 1, z    );
+        d = (int) isVoid(chunk, x, y - 1, z + 1);
+        e = (int) isVoid(chunk, x, y    , z + 1);
+        f = (int) isVoid(chunk, x, y + 1, z + 1);
+        g = (int) isVoid(chunk, x, y + 1, z    );
+        h = (int) isVoid(chunk, x, y + 1, z - 1);
+        break;
+    case PLANE_Y:
+        a = (int) isVoid(chunk, x    , y, z - 1);
+        b = (int) isVoid(chunk, x - 1, y, z - 1);
+        c = (int) isVoid(chunk, x - 1, y, z    );
+        d = (int) isVoid(chunk, x - 1, y, z + 1);
+        e = (int) isVoid(chunk, x    , y, z + 1);
+        f = (int) isVoid(chunk, x + 1, y, z + 1);
+        g = (int) isVoid(chunk, x + 1, y, z    );
+        h = (int) isVoid(chunk, x + 1, y, z - 1);
+        break;
+    case PLANE_Z:
+        a = (int) isVoid(chunk, x - 1, y    , z);
+        b = (int) isVoid(chunk, x - 1, y - 1, z);
+        c = (int) isVoid(chunk, x    , y - 1, z);
+        d = (int) isVoid(chunk, x + 1, y - 1, z);
+        e = (int) isVoid(chunk, x + 1, y    , z);
+        f = (int) isVoid(chunk, x + 1, y + 1, z);
+        g = (int) isVoid(chunk, x    , y + 1, z);
+        h = (int) isVoid(chunk, x - 1, y + 1, z);
+        break;
+    default:
+        assert(false);
+        break;
+    }
+
+    return (Vector4){
+        .x = (a + b + c),
+        .y = (g + h + a),
+        .z = (e + f + g),
+        .w = (c + d + e),
+    };
+}
+
 bool isVoid(Chunk *c, int x, int y, int z) {
     int wx = x + c->position.x;
     int wy = y + c->position.y;
@@ -143,8 +191,10 @@ void GenChunkMesh(Chunk *chunk)
     // 0-2 x,y,z
     // 3   voxel_id
     // 4   face_id
-    chunk->vertexSize = 5;
-    uint8_t* vertex_data = (uint8_t*) calloc(CHUNK_VOLUME * 36 * chunk->vertexSize, sizeof(uint8_t));
+    // 5   ambient occlusion
+    // 6   flip_id
+    chunk->vertexSize = 7;
+    uint8_t* vertex_data = (uint8_t*) calloc(CHUNK_VOLUME * 18 * chunk->vertexSize, sizeof(uint8_t));
     int index = 0;
 
     #define PUSH_VERTEX(vertex) \
@@ -169,62 +219,104 @@ void GenChunkMesh(Chunk *chunk)
 
                 // Top face
                 if (isVoid(chunk, x, y + 1, z)) {
-                    uint8_t v0[5] = { x,     y + 1, z,     voxel_id, 0};
-                    uint8_t v1[5] = { x + 1, y + 1, z,     voxel_id, 0};
-                    uint8_t v2[5] = { x + 1, y + 1, z + 1, voxel_id, 0};
-                    uint8_t v3[5] = { x,     y + 1, z + 1, voxel_id, 0};
+                    Vector4 ao = getAO(chunk, PLANE_Y, x, y + 1, z);
+                    bool flip_id = ao.y + ao.w > ao.x + ao.z;
 
-                    PUSH_FACE(v0, v3, v2, v0, v2, v1);
+                    uint8_t v0[7] = { x,     y + 1, z,     voxel_id, 0, ao.x, flip_id};
+                    uint8_t v1[7] = { x + 1, y + 1, z,     voxel_id, 0, ao.y, flip_id};
+                    uint8_t v2[7] = { x + 1, y + 1, z + 1, voxel_id, 0, ao.z, flip_id};
+                    uint8_t v3[7] = { x,     y + 1, z + 1, voxel_id, 0, ao.w, flip_id};
+                    
+                    if (flip_id) {
+                        PUSH_FACE(v1, v0, v3, v1, v3, v2);
+                    } else {
+                        PUSH_FACE(v0, v3, v2, v0, v2, v1);
+                    }
                 }
 
                 // Bottom face
                 if (isVoid(chunk, x, y - 1, z)) {
-                    uint8_t v0[5] = {x,     y, z,     voxel_id, 1}; 
-                    uint8_t v1[5] = {x + 1, y, z,     voxel_id, 1}; 
-                    uint8_t v2[5] = {x + 1, y, z + 1, voxel_id, 1}; 
-                    uint8_t v3[5] = {x,     y, z + 1, voxel_id, 1}; 
+                    Vector4 ao = getAO(chunk, PLANE_Y, x, y - 1, z);
+                    bool flip_id = ao.y + ao.w > ao.x + ao.z;
+
+                    uint8_t v0[7] = {x,     y, z,     voxel_id, 1, ao.x, flip_id}; 
+                    uint8_t v1[7] = {x + 1, y, z,     voxel_id, 1, ao.y, flip_id}; 
+                    uint8_t v2[7] = {x + 1, y, z + 1, voxel_id, 1, ao.z, flip_id}; 
+                    uint8_t v3[7] = {x,     y, z + 1, voxel_id, 1, ao.w, flip_id}; 
                     
-                    PUSH_FACE(v0, v2, v3, v0, v1, v2);                    
+                    if (flip_id) {
+                        PUSH_FACE(v1, v3, v0, v1, v2, v3);
+                    } else {
+                        PUSH_FACE(v0, v2, v3, v0, v1, v2);                    
+                    }
                 }
 
                 // Right face
                 if (isVoid(chunk, x + 1, y, z)) {
-                    uint8_t v0[5] = {x + 1, y,     z,     voxel_id, 2};
-                    uint8_t v1[5] = {x + 1, y + 1, z,     voxel_id, 2};
-                    uint8_t v2[5] = {x + 1, y + 1, z + 1, voxel_id, 2};
-                    uint8_t v3[5] = {x + 1, y,     z + 1, voxel_id, 2};
+                    Vector4 ao = getAO(chunk, PLANE_X, x + 1, y, z);
+                    bool flip_id = ao.y + ao.w > ao.x + ao.z;
 
-                    PUSH_FACE(v0, v1, v2, v0, v2, v3);
+                    uint8_t v0[7] = {x + 1, y,     z,     voxel_id, 2, ao.x, flip_id};
+                    uint8_t v1[7] = {x + 1, y + 1, z,     voxel_id, 2, ao.y, flip_id};
+                    uint8_t v2[7] = {x + 1, y + 1, z + 1, voxel_id, 2, ao.z, flip_id};
+                    uint8_t v3[7] = {x + 1, y,     z + 1, voxel_id, 2, ao.w, flip_id};
+
+                    if (flip_id) {
+                        PUSH_FACE(v3, v0, v1, v3, v1, v2);
+                    } else {
+                        PUSH_FACE(v0, v1, v2, v0, v2, v3);
+                    }
                 }
 
                 // Left face
                 if (isVoid(chunk, x - 1, y, z)) {
-                    uint8_t v0[5] = {x, y,     z,     voxel_id, 3};
-                    uint8_t v1[5] = {x, y + 1, z,     voxel_id, 3};
-                    uint8_t v2[5] = {x, y + 1, z + 1, voxel_id, 3};
-                    uint8_t v3[5] = {x, y,     z + 1, voxel_id, 3};
+                    Vector4 ao = getAO(chunk, PLANE_X, x - 1, y, z);
+                    bool flip_id = ao.y + ao.w > ao.x + ao.z;
 
-                    PUSH_FACE(v0, v2, v1, v0, v3, v2);
+                    uint8_t v0[7] = {x, y,     z,     voxel_id, 3, ao.x, flip_id};
+                    uint8_t v1[7] = {x, y + 1, z,     voxel_id, 3, ao.y, flip_id};
+                    uint8_t v2[7] = {x, y + 1, z + 1, voxel_id, 3, ao.z, flip_id};
+                    uint8_t v3[7] = {x, y,     z + 1, voxel_id, 3, ao.w, flip_id};
+
+                    if (flip_id) {
+                        PUSH_FACE(v3, v1, v0, v3, v2, v1);
+                    } else {
+                        PUSH_FACE(v0, v2, v1, v0, v3, v2);
+                    }
                 }
 
                 // Back face
                 if (isVoid(chunk, x, y, z - 1)) {
-                    uint8_t v0[5] = {x,     y,     z, voxel_id, 4};
-                    uint8_t v1[5] = {x,     y + 1, z, voxel_id, 4};
-                    uint8_t v2[5] = {x + 1, y + 1, z, voxel_id, 4};
-                    uint8_t v3[5] = {x + 1, y,     z, voxel_id, 4};
+                    Vector4 ao = getAO(chunk, PLANE_Z, x, y, z - 1);
+                    bool flip_id = ao.y + ao.w > ao.x + ao.z;
 
-                    PUSH_FACE(v0, v1, v2, v0, v2, v3);
+                    uint8_t v0[7] = {x,     y,     z, voxel_id, 4, ao.x, flip_id};
+                    uint8_t v1[7] = {x,     y + 1, z, voxel_id, 4, ao.y, flip_id};
+                    uint8_t v2[7] = {x + 1, y + 1, z, voxel_id, 4, ao.z, flip_id};
+                    uint8_t v3[7] = {x + 1, y,     z, voxel_id, 4, ao.w, flip_id};
+
+                    if (flip_id) {
+                        PUSH_FACE(v3, v0, v1, v3, v1, v2);
+                    } else {
+                        PUSH_FACE(v0, v1, v2, v0, v2, v3);
+                    }
                 }
 
                 // Front face
                 if (isVoid(chunk, x, y, z + 1)) {
-                    uint8_t v0[5] = {x,     y,     z + 1, voxel_id, 5};
-                    uint8_t v1[5] = {x,     y + 1, z + 1, voxel_id, 5};
-                    uint8_t v2[5] = {x + 1, y + 1, z + 1, voxel_id, 5};
-                    uint8_t v3[5] = {x + 1, y,     z + 1, voxel_id, 5};
+                    Vector4 ao = getAO(chunk, PLANE_Z, x, y, z + 1);
+                    bool flip_id = ao.y + ao.w > ao.x + ao.z;
 
-                    PUSH_FACE(v0, v2, v1, v0, v3, v2);
+                    uint8_t v0[7] = {x,     y,     z + 1, voxel_id, 5, ao.x, flip_id};
+                    uint8_t v1[7] = {x,     y + 1, z + 1, voxel_id, 5, ao.y, flip_id};
+                    uint8_t v2[7] = {x + 1, y + 1, z + 1, voxel_id, 5, ao.z, flip_id};
+                    uint8_t v3[7] = {x + 1, y,     z + 1, voxel_id, 5, ao.w, flip_id};
+
+                    if (flip_id) {
+                        PUSH_FACE(v3, v1, v0, v3, v2, v1);
+                    } else {
+                        PUSH_FACE(v0, v2, v1, v0, v3, v2);
+                    }
                 }
             }
         }
@@ -243,12 +335,16 @@ void GenChunkMesh(Chunk *chunk)
     assert(chunk->vbo > 0);
 
     rlEnableVertexArray(chunk->vao);
-    glVertexAttribIPointer(0, 3, GL_UNSIGNED_BYTE, 5, (void *) 0);
+    glVertexAttribIPointer(0, 3, GL_UNSIGNED_BYTE, chunk->vertexSize, (void *)0);
     rlEnableVertexAttribute(0);
-    glVertexAttribIPointer(1, 1, GL_UNSIGNED_BYTE, 5, (void *) 3);
+    glVertexAttribIPointer(1, 1, GL_UNSIGNED_BYTE, chunk->vertexSize, (void *)3);
     rlEnableVertexAttribute(1);
-    glVertexAttribIPointer(2, 1, GL_UNSIGNED_BYTE, 5, (void *) 4);
+    glVertexAttribIPointer(2, 1, GL_UNSIGNED_BYTE, chunk->vertexSize, (void *)4);
     rlEnableVertexAttribute(2);
+    glVertexAttribIPointer(3, 1, GL_UNSIGNED_BYTE, chunk->vertexSize, (void *)5);
+    rlEnableVertexAttribute(3);
+    glVertexAttribIPointer(4, 1, GL_UNSIGNED_BYTE, chunk->vertexSize, (void *)6);
+    rlEnableVertexAttribute(4);
 
     rlDisableVertexArray();
     rlDisableVertexBuffer();

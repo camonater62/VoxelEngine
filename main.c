@@ -36,11 +36,11 @@ int main(void) {
         UpdateCameraPro(&camera,
             (Vector3){
                 // Move forward-backward
-                (IsKeyDown(KEY_W) || IsKeyDown(KEY_UP)) * 50.0f * GetFrameTime() -      
-                (IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN)) * 50.0f * GetFrameTime(),    
+                (IsKeyDown(KEY_W) || IsKeyDown(KEY_UP)) * 30.0f * GetFrameTime() -      
+                (IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN)) * 30.0f * GetFrameTime(),    
                 // Move right-left
-                (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)) * 50.0f * GetFrameTime() -   
-                (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT)) * 50.0f * GetFrameTime(),
+                (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)) * 30.0f * GetFrameTime() -   
+                (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT)) * 30.0f * GetFrameTime(),
                 // Move up-down
                 (IsKeyDown(KEY_SPACE)) * 50.0f * GetFrameTime() -      
                 (IsKeyDown(KEY_LEFT_SHIFT)) * 50.0f * GetFrameTime(),                                                 
