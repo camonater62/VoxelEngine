@@ -1,10 +1,6 @@
 #version 330 core
 
-layout (location = 0) in ivec3 in_position;
-layout (location = 1) in int voxel_id;
-layout (location = 2) in int face_id;
-layout (location = 3) in int ao_id;
-layout (location = 4) in int flip_id;
+layout (location = 0) in uint packed_data;
 
 uniform mat4 mvp;
 
@@ -39,9 +35,17 @@ vec3 hash31(float p) {
 }
 
 void main() {
+    int x = int((packed_data >> 26) & 63u);
+    int y = int((packed_data >> 20) & 63u); 
+    int z = int((packed_data >> 14) & 63u);
+    int voxel_id = int((packed_data >> 6) & 255u);
+    int face_id = int((packed_data >> 3) & 7u);
+    int ao_id = int((packed_data >> 1) & 3u);
+    int flip_id = int(packed_data & 1u);
+
     int uv_index = gl_VertexID % 6 + ((face_id & 1) + flip_id * 2) * 6;
     uv = uv_coords[uv_indices[uv_index]];
     voxel_color = hash31(voxel_id);
     shading = face_shading[face_id] * ao_values[ao_id];
-    gl_Position = mvp * vec4(in_position, 1.0);
+    gl_Position = mvp * vec4(x, y, z, 1.0);
 }

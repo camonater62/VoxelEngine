@@ -185,6 +185,30 @@ bool isVoid(Chunk *c, int x, int y, int z) {
     return (chunk_voxels[voxel_index] == 0);
 }
 
+uint32_t packVertexData(uint8_t x, uint8_t y, uint8_t z, 
+                        uint8_t voxel_id, uint8_t face_id, 
+                        uint8_t ao_id, uint8_t flip_id) {
+    
+    x &= 63;
+    y &= 63;
+    z &= 63;
+    voxel_id &= 255;
+    face_id &= 7;
+    ao_id &= 3;
+    flip_id &= 1;
+
+    uint32_t data = 
+        x        << 26 |
+        y        << 20 |
+        z        << 14 |
+        voxel_id << 6 |
+        face_id  << 3 |
+        ao_id    << 1 |
+        flip_id  << 0;
+
+    return data;
+}
+
 void GenChunkMesh(Chunk *chunk)
 {
     // vertex attributes:
@@ -193,13 +217,24 @@ void GenChunkMesh(Chunk *chunk)
     // 4   face_id
     // 5   ambient occlusion
     // 6   flip_id
-    chunk->vertexSize = 7;
+    // all attributes are packed into 32 bits
+    chunk->vertexSize = 4;
     uint8_t* vertex_data = (uint8_t*) calloc(CHUNK_VOLUME * 18 * chunk->vertexSize, sizeof(uint8_t));
     int index = 0;
 
-    #define PUSH_VERTEX(vertex) \
-        memcpy(vertex_data + index, vertex, sizeof(vertex)); \
-        index += sizeof(vertex); 
+    #define PUSH_VERTEX(vertex) { \
+        uint32_t __pack_vertex = packVertexData( \
+                vertex[0], \
+                vertex[1], \
+                vertex[2], \
+                vertex[3], \
+                vertex[4], \
+                vertex[5], \
+                vertex[6]  \
+            ); \
+        memcpy(vertex_data + index, &__pack_vertex, chunk->vertexSize); \
+        index += chunk->vertexSize; \
+    }
 
     #define PUSH_FACE(a, b, c, d, e, f) \
         PUSH_VERTEX(a); \
@@ -335,16 +370,8 @@ void GenChunkMesh(Chunk *chunk)
     assert(chunk->vbo > 0);
 
     rlEnableVertexArray(chunk->vao);
-    glVertexAttribIPointer(0, 3, GL_UNSIGNED_BYTE, chunk->vertexSize, (void *)0);
+    glVertexAttribIPointer(0, 1, GL_UNSIGNED_INT, chunk->vertexSize, (void *)0);
     rlEnableVertexAttribute(0);
-    glVertexAttribIPointer(1, 1, GL_UNSIGNED_BYTE, chunk->vertexSize, (void *)3);
-    rlEnableVertexAttribute(1);
-    glVertexAttribIPointer(2, 1, GL_UNSIGNED_BYTE, chunk->vertexSize, (void *)4);
-    rlEnableVertexAttribute(2);
-    glVertexAttribIPointer(3, 1, GL_UNSIGNED_BYTE, chunk->vertexSize, (void *)5);
-    rlEnableVertexAttribute(3);
-    glVertexAttribIPointer(4, 1, GL_UNSIGNED_BYTE, chunk->vertexSize, (void *)6);
-    rlEnableVertexAttribute(4);
 
     rlDisableVertexArray();
     rlDisableVertexBuffer();
