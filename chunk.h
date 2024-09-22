@@ -10,7 +10,7 @@ struct Chunk {
     Vector3 position;
     struct World *world;
     uint8_t *voxels;
-    uint8_t *vertices;
+    uint32_t *vertices;
     int vertexCount;
     int vertexSize;
     int vao;

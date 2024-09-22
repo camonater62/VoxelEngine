@@ -12,6 +12,7 @@
 
 #include "glad.h"
 #include <stb_perlin.h>
+#include <stb_ds.h>
 
 static int chunkShaderId = -1;
 static int chunkMvpLoc = -1;
@@ -99,9 +100,7 @@ void DrawChunk(Chunk *c, Camera* camera) {
 
 void DestroyChunk(Chunk* c) {
     if (c) {
-        if (c->vertices) {
-            free(c->vertices);
-        }
+        arrfree(c->vertices);
 
         rlUnloadVertexArray(c->vao);
         rlUnloadVertexBuffer(c->vbo);
@@ -219,11 +218,10 @@ void GenChunkMesh(Chunk *chunk)
     // 6   flip_id
     // all attributes are packed into 32 bits
     chunk->vertexSize = 4;
-    uint8_t* vertex_data = (uint8_t*) calloc(CHUNK_VOLUME * 18 * chunk->vertexSize, sizeof(uint8_t));
-    int index = 0;
+    uint32_t* vertex_data = NULL;
 
-    #define PUSH_VERTEX(vertex) { \
-        uint32_t __pack_vertex = packVertexData( \
+    #define PUSH_VERTEX(vertex) \
+        arrpush(vertex_data, packVertexData( \
                 vertex[0], \
                 vertex[1], \
                 vertex[2], \
@@ -231,10 +229,7 @@ void GenChunkMesh(Chunk *chunk)
                 vertex[4], \
                 vertex[5], \
                 vertex[6]  \
-            ); \
-        memcpy(vertex_data + index, &__pack_vertex, chunk->vertexSize); \
-        index += chunk->vertexSize; \
-    }
+            )); 
 
     #define PUSH_FACE(a, b, c, d, e, f) \
         PUSH_VERTEX(a); \
@@ -362,7 +357,7 @@ void GenChunkMesh(Chunk *chunk)
     }
 
     chunk->vertices = vertex_data;
-    chunk->vertexCount = index / chunk->vertexSize;
+    chunk->vertexCount = arrlen(vertex_data);
 
     chunk->vao = rlLoadVertexArray();
     assert(chunk->vao > 0);
