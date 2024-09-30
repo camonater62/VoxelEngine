@@ -88,7 +88,8 @@ void DrawChunk(Chunk *c, Camera* camera) {
     Matrix matModel = MatrixTranslate(c->position.x, c->position.y, c->position.z);
     Matrix matView = GetCameraViewMatrix(camera);
     Matrix matModelView = MatrixMultiply(matModel, matView);
-    Matrix matProjection = GetCameraProjectionMatrix(camera, WIN_RES.x / WIN_RES.y);
+    float aspectRatio = (float)GetScreenWidth() / (float)GetScreenHeight();
+    Matrix matProjection = GetCameraProjectionMatrix(camera, aspectRatio);
     Matrix matModelViewProjection = MatrixMultiply(matModelView, matProjection);
     
     rlEnableTexture(chunkTexture.id);
@@ -353,7 +354,7 @@ void GenChunkMesh(Chunk *chunk)
     }
 
     if (chunk->vertices) {
-        free(chunk->vertices);
+        arrfree(chunk->vertices);
     }
 
     chunk->vertices = vertex_data;

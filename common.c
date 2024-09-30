@@ -18,3 +18,4 @@ const int WORLD_AREA = WORLD_W * WORLD_D;
 const int WORLD_VOL = WORLD_AREA * WORLD_H;
 const int CENTER_XZ = WORLD_W * H_CHUNK_SIZE;
 const int CENTER_Y = WORLD_H * H_CHUNK_SIZE;
+const int MAX_RAY_DIST = 6;

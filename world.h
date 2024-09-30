@@ -18,4 +18,11 @@ void GenWorldMeshes(World *w);
 void DrawWorld(World *w, Camera *camera);
 void DestroyWorld(World *w);
 
+int GetChunkIndex(Vector3 worldpos);
+int GetVoxelIndex(Vector3 worldpos);
+
+RayCollision RayCast(World *w, Camera *camera);
+void RemoveVoxel(World *w, Vector3 voxel);
+void AddVoxel(World *w, Vector3 voxel);
+
 #endif // _WORLD_H

@@ -36,14 +36,14 @@ int main(void) {
         UpdateCameraPro(&camera,
             (Vector3){
                 // Move forward-backward
-                (IsKeyDown(KEY_W) || IsKeyDown(KEY_UP)) * 30.0f * GetFrameTime() -      
-                (IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN)) * 30.0f * GetFrameTime(),    
+                IsKeyDown(KEY_W) * 20.0f * GetFrameTime() -      
+                IsKeyDown(KEY_S) * 20.0f * GetFrameTime(),    
                 // Move right-left
-                (IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)) * 30.0f * GetFrameTime() -   
-                (IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT)) * 30.0f * GetFrameTime(),
+                IsKeyDown(KEY_D) * 20.0f * GetFrameTime() -   
+                IsKeyDown(KEY_A) * 20.0f * GetFrameTime(),
                 // Move up-down
-                (IsKeyDown(KEY_SPACE)) * 50.0f * GetFrameTime() -      
-                (IsKeyDown(KEY_LEFT_SHIFT)) * 50.0f * GetFrameTime(),                                                 
+                IsKeyDown(KEY_SPACE) * 20.0f * GetFrameTime() -      
+                IsKeyDown(KEY_LEFT_SHIFT) * 20.0f * GetFrameTime(),                                                 
             },
             (Vector3){
                 // Rotation: yaw
@@ -55,6 +55,16 @@ int main(void) {
             },
             // Move to target (zoom)
             0.0f);                              
+        RayCollision currentBlock = RayCast(world, &camera);
+        if (currentBlock.hit) {
+            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                RemoveVoxel(world, currentBlock.point);
+            }
+            else if (IsMouseButtonPressed(MOUSE_BUTTON_RIGHT)) {
+                AddVoxel(world, Vector3Add(currentBlock.point, currentBlock.normal));
+            }
+        }
+        
 
         ClearBackground(BG_COLOR);
 
@@ -63,8 +73,17 @@ int main(void) {
             BeginMode3D(camera);
             {
                 DrawWorld(world, &camera);
+                if (currentBlock.hit) {
+                    Vector3 offset = {0.5f, 0.5f, 0.5f};
+                    Vector3 selectedPos = Vector3Add(currentBlock.point, offset);
+                    Vector3 size = {1.02f, 1.02f, 1.02f}; // Slightly larger than a voxel to prevent z-fighting
+                    Color color = {0, 0, 0, 128}; // Darken the selected voxel
+                    DrawCubeV(selectedPos, size, color);
+                }                
             }
             EndMode3D();
+
+            DrawCircleLines(WIN_RES.x / 2, WIN_RES.y / 2, 5, RAYWHITE);
 
             DrawFPS(10, 10);
             char buf[50] = {0};
