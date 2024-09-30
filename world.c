@@ -66,6 +66,7 @@ void DestroyWorld(World *w) {
             for (int i = 0; i < WORLD_VOL; i++) {
                 DestroyChunk(w->chunks[i]);
             }
+            free(w->chunks);
         }
         if (w->voxels) {
             free(w->voxels);

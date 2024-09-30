@@ -22,7 +22,9 @@ static Texture chunkTexture;
 
 Chunk* CreateChunk(World *w, Vector3 position, int chunk_index) {
     Chunk* c = malloc(sizeof(Chunk));
+    assert(c != NULL);
     c->voxels = calloc(CHUNK_VOLUME, sizeof(uint8_t));
+    assert(c->voxels != NULL);
     w->voxels[chunk_index] = c->voxels;
     c->vertices = NULL;
     c->vertexCount = 0;
@@ -41,7 +43,7 @@ Chunk* CreateChunk(World *w, Vector3 position, int chunk_index) {
                 local_height = CHUNK_SIZE;
             }
             for (int y = 0; y < local_height; y++) {
-                c->voxels[x + CHUNK_SIZE * z + CHUNK_AREA * y] = y + position.y + 1;
+                c->voxels[x + CHUNK_SIZE * z + CHUNK_AREA * y] = chunk_index % 256; // y + position.y + 1;
             }
         }
     }
@@ -51,7 +53,9 @@ Chunk* CreateChunk(World *w, Vector3 position, int chunk_index) {
 
 void InitChunkGL(void) {
     char* vShaderStr = LoadFileText("chunk.vert");
+    assert(vShaderStr != NULL);
     char* fShaderStr = LoadFileText("chunk.frag");
+    assert(fShaderStr != NULL);
     chunkShaderId = rlLoadShaderCode(vShaderStr, fShaderStr);
     assert(chunkShaderId > 0);
 
@@ -150,6 +154,7 @@ void DrawChunk(Chunk *c, Camera *camera) {
 
 void DestroyChunk(Chunk* c) {
     if (c) {
+        free(c->voxels);
         arrfree(c->vertices);
 
         rlUnloadVertexArray(c->vao);
@@ -404,6 +409,8 @@ void GenChunkMesh(Chunk *chunk)
 
     if (chunk->vertices) {
         arrfree(chunk->vertices);
+        rlUnloadVertexArray(chunk->vao);
+        rlUnloadVertexBuffer(chunk->vbo);
     }
 
     chunk->vertices = vertex_data;
