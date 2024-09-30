@@ -8,6 +8,7 @@
 
 
 int main(void) {
+    SetTraceLogLevel(LOG_WARNING);
     SetTargetFPS(0);
     SetConfigFlags(FLAG_VSYNC_HINT);
     InitWindow(WIN_RES.x, WIN_RES.y, "Voxel Engine");
@@ -76,7 +77,7 @@ int main(void) {
                 if (currentBlock.hit) {
                     Vector3 offset = {0.5f, 0.5f, 0.5f};
                     Vector3 selectedPos = Vector3Add(currentBlock.point, offset);
-                    Vector3 size = {1.02f, 1.02f, 1.02f}; // Slightly larger than a voxel to prevent z-fighting
+                    Vector3 size = {1.03f, 1.03f, 1.03f}; // Slightly larger than a voxel to prevent z-fighting
                     Color color = {0, 0, 0, 128}; // Darken the selected voxel
                     DrawCubeV(selectedPos, size, color);
                 }                

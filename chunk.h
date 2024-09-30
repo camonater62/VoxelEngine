@@ -36,5 +36,6 @@ void DestroyChunk(Chunk *c);
 Vector4 getAO(Chunk *chunk, FacePlane plane, int x, int y, int z);
 bool isVoid(Chunk *c, int x, int y, int z);
 void GenChunkMesh(Chunk *chunk);
+bool OnFrustum(Chunk *c, Camera *camera);
 
 #endif // _CHUNK_H

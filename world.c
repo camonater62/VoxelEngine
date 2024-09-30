@@ -226,7 +226,7 @@ void RemoveVoxel(World *w, Vector3 voxel)
                 GenChunkMesh(w->chunks[adjChunk]);
             }
         }
-        if (vx == CHUNK_SIZE - 1 && voxel.x < CHUNK_SIZE * WORLD_W) {
+        if (vx == CHUNK_SIZE - 1 && voxel.x < CHUNK_SIZE * (WORLD_W - 1)) {
             Vector3 offset = {1, 0, 0};
             Vector3 adjPos = Vector3Add(voxel, offset);
             int adjChunk = GetChunkIndex(adjPos);
@@ -243,7 +243,7 @@ void RemoveVoxel(World *w, Vector3 voxel)
                 GenChunkMesh(w->chunks[adjChunk]);
             }
         }
-        if (vy == CHUNK_SIZE - 1  && voxel.y < CHUNK_SIZE * WORLD_H) {
+        if (vy == CHUNK_SIZE - 1  && voxel.y < CHUNK_SIZE * (WORLD_H - 1)) {
             Vector3 offset = {0, 1, 0};
             Vector3 adjPos = Vector3Add(voxel, offset);
             int adjChunk = GetChunkIndex(adjPos);
@@ -260,7 +260,7 @@ void RemoveVoxel(World *w, Vector3 voxel)
                 GenChunkMesh(w->chunks[adjChunk]);
             }
         }
-        if (vz == CHUNK_SIZE - 1  && voxel.z < CHUNK_SIZE * WORLD_D) {
+        if (vz == CHUNK_SIZE - 1  && voxel.z < CHUNK_SIZE * (WORLD_D - 1)) {
             Vector3 offset = {0, 0, 1};
             Vector3 adjPos = Vector3Add(voxel, offset);
             int adjChunk = GetChunkIndex(adjPos);

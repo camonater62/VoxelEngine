@@ -21,5 +21,6 @@ extern const int WORLD_VOL;
 extern const int CENTER_XZ;
 extern const int CENTER_Y;
 extern const int MAX_RAY_DIST;
+extern const float  CHUNK_SPHERE_RADIUS;
 
 #endif // _COMMON_H

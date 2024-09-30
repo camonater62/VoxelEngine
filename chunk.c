@@ -35,7 +35,7 @@ Chunk* CreateChunk(World *w, Vector3 position, int chunk_index) {
         for (int z = 0; z < CHUNK_SIZE; z++) {
             float wx = 0.01f * (x + position.x);
             float wz = 0.01f * (z + position.z);
-            int world_height = (int)(64 * stb_perlin_noise3(wx, 0, wz, 0, 0, 0) + 64);
+            int world_height = (int)(48 * stb_perlin_noise3(wx, 0, wz, 0, 0, 0) + 48);
             int local_height = world_height - position.y;
             if (local_height > CHUNK_SIZE) {
                 local_height = CHUNK_SIZE;
@@ -78,8 +78,57 @@ void CloseChunkGL(void) {
     rlUnloadShaderProgram(chunkShaderId);
 }
 
-void DrawChunk(Chunk *c, Camera* camera) {
-    if (c->vertexCount == 0) {
+bool OnFrustum(Chunk *c, Camera *camera) {
+    Vector3 half = {H_CHUNK_SIZE, H_CHUNK_SIZE, H_CHUNK_SIZE};
+    Vector3 chunkCenter = Vector3Add(c->position, half);
+    Vector3 toSphere = Vector3Subtract(chunkCenter, camera->position);
+    Vector3 forward = GetCameraForward(camera);
+    Vector3 right = GetCameraRight(camera);
+    Vector3 up = Vector3CrossProduct(right, forward);
+    up = Vector3Normalize(up);
+
+    float aspectRatio = (float)GetScreenWidth() / (float)GetScreenHeight();
+    float vfov = DEG2RAD * camera->fovy;
+    float hfov = 2 * atanf(tanf(vfov / 2) * aspectRatio);
+
+    float Sz = Vector3DotProduct(forward, toSphere);
+
+    bool nearCheck = Sz >= CAMERA_CULL_DISTANCE_NEAR - CHUNK_SPHERE_RADIUS;
+    bool farCheck = Sz <= CAMERA_CULL_DISTANCE_FAR + CHUNK_SPHERE_RADIUS;
+
+    if (!nearCheck || !farCheck) {
+        return false;
+    }
+
+    float Sy = Vector3DotProduct(up, toSphere);
+    float d = CHUNK_SPHERE_RADIUS / cosf(vfov / 2);
+    float h = Sz * tanf(vfov / 2);
+    float dist = d + h;
+
+    bool bottomCheck = -dist <= Sy;
+    bool topCheck = Sy <= dist;
+
+    if (!bottomCheck || !topCheck) {
+        return false;
+    }
+
+    float Sx = Vector3DotProduct(right, toSphere);
+    d = CHUNK_SPHERE_RADIUS / cosf(hfov / 2);
+    h = Sz * tanf(hfov / 2);
+    dist = d + h;
+
+    bool leftCheck = -dist <= Sx;
+    bool rightCheck = Sx <= dist;
+
+    if (!leftCheck || !rightCheck) {
+        return false;
+    }
+
+    return true;
+}
+
+void DrawChunk(Chunk *c, Camera *camera) {
+    if (c->vertexCount == 0 || !OnFrustum(c, camera)) {
         return;
     }
 
