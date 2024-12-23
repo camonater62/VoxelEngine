@@ -11,11 +11,17 @@ in vec3 voxel_color;
 in vec2 uv;
 in float shading;
 
+flat in int face_id;
+flat in int voxel_id;
+
 void main() {
-    vec3 tex_col = texture(u_texture_0, uv).rgb;
+    vec2 face_uv;
+    face_uv.x = uv.x / 3.0 - min(2, face_id) / 3.0;
+    face_uv.y = uv.y / 8.0 + voxel_id / 8.0;
+
+    vec3 tex_col = texture(u_texture_0, face_uv).rgb;
     tex_col = pow(tex_col, gamma);
 
-    tex_col *= voxel_color;
     tex_col *= shading;
 
     tex_col = pow(tex_col, inv_gamma);

@@ -43,7 +43,7 @@ Chunk* CreateChunk(World *w, Vector3 position, int chunk_index) {
                 local_height = CHUNK_SIZE;
             }
             for (int y = 0; y < local_height; y++) {
-                c->voxels[x + CHUNK_SIZE * z + CHUNK_AREA * y] = chunk_index % 256; // y + position.y + 1;
+                c->voxels[x + CHUNK_SIZE * z + CHUNK_AREA * y] = 2;//chunk_index % 256; // y + position.y + 1;
             }
         }
     }
@@ -65,16 +65,15 @@ void InitChunkGL(void) {
     chunkMvpLoc = rlGetLocationUniform(chunkShaderId, "mvp");
     assert(chunkMvpLoc >= 0);
     chunkTextureLoc = rlGetLocationUniform(chunkShaderId, "u_texture_0");
-    assert(chunkTextureLoc >= 0);
     
     rlDisableShader();
 
-    Image image = LoadImage("frame.png");
+    Image image = LoadImage("tex_array_0.png");
     ImageFlipHorizontal(&image);
     chunkTexture = LoadTextureFromImage(image);
     UnloadImage(image);
     rlTextureParameters(chunkTexture.id, RL_TEXTURE_FILTER_ANISOTROPIC, 16);
-    assert(IsTextureReady(chunkTexture));
+    assert(IsTextureValid(chunkTexture));
 }
 
 void CloseChunkGL(void) {
@@ -146,8 +145,8 @@ void DrawChunk(Chunk *c, Camera *camera) {
     Matrix matModelViewProjection = MatrixMultiply(matModelView, matProjection);
     
     rlEnableTexture(chunkTexture.id);
-    rlSetUniformMatrix(chunkMvpLoc, matModelViewProjection);
     rlSetUniform(chunkTextureLoc, &chunkTexture.id, RL_SHADER_UNIFORM_UINT, 1);
+    rlSetUniformMatrix(chunkMvpLoc, matModelViewProjection);
     assert(rlEnableVertexArray(c->vao));
     rlDrawVertexArray(0, c->vertexCount);
 }
@@ -274,6 +273,12 @@ void GenChunkMesh(Chunk *chunk)
     // all attributes are packed into 32 bits
     chunk->vertexSize = 4;
     uint32_t* vertex_data = NULL;
+
+    if (chunk->vertices != NULL) {
+        arrsetcap(vertex_data, chunk->vertexCount + 4);
+    } else {
+        arrsetcap(vertex_data, CHUNK_VOLUME / 16);
+    }
 
     #define PUSH_VERTEX(vertex) \
         arrpush(vertex_data, packVertexData( \

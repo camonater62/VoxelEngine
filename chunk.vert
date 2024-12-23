@@ -4,6 +4,9 @@ layout (location = 0) in uint packed_data;
 
 uniform mat4 mvp;
 
+flat out int voxel_id;
+flat out int face_id;
+
 out vec3 voxel_color;
 out vec2 uv;
 out float shading;
@@ -38,8 +41,8 @@ void main() {
     int x = int((packed_data >> 26) & 63u);
     int y = int((packed_data >> 20) & 63u); 
     int z = int((packed_data >> 14) & 63u);
-    int voxel_id = int((packed_data >> 6) & 255u);
-    int face_id = int((packed_data >> 3) & 7u);
+    voxel_id = int((packed_data >> 6) & 255u);
+    face_id = int((packed_data >> 3) & 7u);
     int ao_id = int((packed_data >> 1) & 3u);
     int flip_id = int(packed_data & 1u);
 
